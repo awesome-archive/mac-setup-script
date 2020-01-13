@@ -2,23 +2,28 @@
 
 # Install some stuff before others!
 important_casks=(
+  authy
   dropbox
-  google-chrome
+  #google-chrome
   hyper
   jetbrains-toolbox
   istat-menus
   spotify
   franz
   visual-studio-code
-  java8
+  slack
 )
 
 brews=(
+  xonsh
+  jabba
   awscli
   "bash-snippets --without-all-tools --with-cryptocurrency --with-stocks --with-weather"
+  bat
   #cheat
   coreutils
   dfc
+  exa
   findutils
   "fontconfig --universal"
   fpp
@@ -47,7 +52,8 @@ brews=(
   moreutils
   mtr
   ncdu
-  nmap
+  neofetch
+  nmap  
   node
   poppler
   postgresql
@@ -69,19 +75,23 @@ brews=(
   "vim --with-override-system-vi"
   #volumemixer
   "wget --with-iri"
+  xsv
+  youtube-dl
 )
 
 casks=(
+  aerial
   adobe-acrobat-pro
   airdroid
   android-platform-tools
   cakebrew
   cleanmymac
   docker
+  expressvpn
   firefox
   geekbench
   google-backup-and-sync
-  github-desktop
+  github
   handbrake
   iina
   istat-server  
@@ -93,22 +103,17 @@ casks=(
   quicklook-json
   quicklook-csv
   macdown
-  microsoft-office
-  muzzle
-  neofetch
-  path-finder
+  #muzzle
   plex-media-player
   plex-media-server
   private-eye
   satellite-eyes
   sidekick
   skype
-  slack
   sloth
   steam
   transmission
   transmission-remote-gui
-  tunnelbear
   xquartz
 )
 
@@ -143,6 +148,7 @@ git_configs=(
   "push.default simple"
   "rebase.autostash true"
   "rerere.autoUpdate true"
+  "remote.origin.prune true"
   "rerere.enabled true"
   "user.name pathikrit"
   "user.email ${git_email}"
@@ -150,18 +156,19 @@ git_configs=(
 )
 
 vscode=(
-  rust-lang.rust
-  dragos.scala-lsp
-  lightbend.vscode-sbt-scala
   alanz.vscode-hie-server
   rebornix.Ruby
   redhat.java
+  rust-lang.rust
+  scalameta.metals
 )
 
 fonts=(
   font-fira-code
   font-source-code-pro
 )
+
+JDK_VERSION=amazon-corretto@1.8.222-10.1
 
 ######################################## End of app list ########################################
 set +e
@@ -179,7 +186,7 @@ function install {
   for pkg in "$@";
   do
     exec="$cmd $pkg"
-    prompt "Execute: $exec"
+    #prompt "Execute: $exec"
     if ${exec} ; then
       echo "Installed $pkg"
     else
@@ -231,6 +238,12 @@ prompt "Install packages"
 install 'brew_install_or_upgrade' "${brews[@]}"
 brew link --overwrite ruby
 
+prompt "Install JDK=${JDK_VERSION}"
+curl -sL https://github.com/shyiko/jabba/raw/master/install.sh | bash && . ~/.jabba/jabba.sh
+jabba install ${JDK_VERSION}
+jabba alias default ${JDK_VERSION}
+java -version
+
 prompt "Set git defaults"
 for config in "${git_configs[@]}"
 do
@@ -245,6 +258,25 @@ if [[ -z "${CI}" ]]; then
   open https://github.com/settings/ssh/new
 fi  
 
+prompt "Upgrade bash"
+brew install bash bash-completion2 fzf
+sudo bash -c "echo $(brew --prefix)/bin/bash >> /private/etc/shells"
+#sudo chsh -s "$(brew --prefix)"/bin/bash
+# Install https://github.com/twolfson/sexy-bash-prompt
+touch ~/.bash_profile #see https://github.com/twolfson/sexy-bash-prompt/issues/51
+(cd /tmp && git clone --depth 1 --config core.autocrlf=false https://github.com/twolfson/sexy-bash-prompt && cd sexy-bash-prompt && make install) && source ~/.bashrc
+
+echo "
+alias del='mv -t ~/.Trash/'
+alias ls='exa -l'
+alias cat=bat
+" >> ~/.bash_profile
+
+prompt "Setting up xonsh"
+sudo bash -c "which xonsh >> /private/etc/shells"
+sudo chsh -s $(which xonsh)
+echo "source-bash --overwrite-aliases ~/.bash_profile" >> ~/.xonshrc
+
 prompt "Install software"
 install 'brew cask install' "${casks[@]}"
 
@@ -256,16 +288,17 @@ install 'code --install-extension' "${vscode[@]}"
 brew tap caskroom/fonts
 install 'brew cask install' "${fonts[@]}"
 
-prompt "Upgrade bash"
-brew install bash bash-completion2 fzf
-sudo bash -c "echo $(brew --prefix)/bin/bash >> /private/etc/shells"
-sudo chsh -s "$(brew --prefix)"/bin/bash
-# Install https://github.com/twolfson/sexy-bash-prompt
-(cd /tmp && git clone --depth 1 --config core.autocrlf=false https://github.com/twolfson/sexy-bash-prompt && cd sexy-bash-prompt && make install) && source ~/.bashrc
+prompt "Changle Slack to dark"
+cd ~/Downloads
+git clone https://github.com/LanikSJ/slack-dark-mode
+cd slack-dark-mode
+./slack-dark-mode.sh 
 
 prompt "Update packages"
 pip3 install --upgrade pip setuptools wheel
-m update install all
+if [[ -z "${CI}" ]]; then
+  m update install all
+fi
 
 if [[ -z "${CI}" ]]; then
   prompt "Install software from App Store"
